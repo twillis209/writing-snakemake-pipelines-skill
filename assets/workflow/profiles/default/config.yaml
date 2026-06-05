@@ -1,0 +1,17 @@
+software-deployment-method:
+  - conda
+cores: all
+keep-going: true
+rerun-incomplete: true
+printshellcmds: true
+default-resources:
+  mem_mb: 4000
+  runtime: 60
+  tmpdir: '"/tmp"'
+# Override per-rule:
+# set-threads:
+#   bwa_mem: 8
+# set-resources:
+#   bwa_mem:
+#     mem_mb: 16000
+#     runtime: 240

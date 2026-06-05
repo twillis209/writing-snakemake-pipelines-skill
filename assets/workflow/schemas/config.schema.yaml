@@ -1,0 +1,27 @@
+$schema: "https://json-schema.org/draft-06/schema#"
+description: workflow configuration
+type: object
+properties:
+  samples:
+    type: string
+    description: path to the samples TSV
+  reference:
+    type: object
+    properties:
+      genome:
+        type: string
+        description: path to the reference FASTA
+    required:
+      - genome
+  params:
+    type: object
+    properties:
+      example:
+        type: object
+        properties:
+          extra:
+            type: string
+            default: ""
+required:
+  - samples
+  - reference

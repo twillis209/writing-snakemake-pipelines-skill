@@ -1,0 +1,10 @@
+.snakemake/
+results/
+logs/
+benchmarks/
+*.pyc
+__pycache__/
+.ipynb_checkpoints/
+# Allow small static resources to be committed; ignore large downloads:
+# resources/genome.fa
+# resources/*.fastq.gz

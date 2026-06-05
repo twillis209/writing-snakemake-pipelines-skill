@@ -1,0 +1,8 @@
+samples: config/samples.tsv
+
+reference:
+  genome: resources/reference.fa
+
+params:
+  example:
+    extra: ""

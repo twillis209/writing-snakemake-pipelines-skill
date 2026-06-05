@@ -1,0 +1,16 @@
+from snakemake.utils import min_version
+
+min_version("8.0")
+
+
+configfile: "config/config.yaml"
+
+
+include: "rules/common.smk"
+include: "rules/example.smk"
+
+
+rule all:
+    input:
+        collect("results/example/{sample}.done", sample=samples.index),
+    default_target: True

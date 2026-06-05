@@ -1,0 +1,23 @@
+$schema: "https://json-schema.org/draft-06/schema#"
+description: an entry in the samples TSV
+type: object
+properties:
+  sample:
+    type: string
+    description: unique sample identifier
+  condition:
+    type: string
+    description: experimental condition / group
+  fq1:
+    type: string
+    description: path to FASTQ read 1
+  fq2:
+    type: string
+    description: path to FASTQ read 2 (optional for SE)
+  paired:
+    type: boolean
+    default: true
+required:
+  - sample
+  - condition
+  - fq1
