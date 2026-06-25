@@ -48,13 +48,15 @@ Phrase every finding as four parts:
 ## Severity
 
 - **Blocker** — breaks reproducibility or correctness: a rule with no
-  `conda:`/`container:`, unpinned versions, a `lambda` the linter fails on,
+  `conda:`/`container:`, unpinned versions, any `lambda` expression inside a
+  rule (banned by non-negotiable #7 regardless of whether the linter runs),
   hardcoded absolute paths.
 - **Should-fix** — works but fragile or non-idiomatic: threads in config,
   missing `log:`, missing schema validation, hand-rolled aggregation, central
   `outdir` concatenation.
-- **Nice-to-have** — optimisation/modernisation: `temp()` opportunities, an
-  available wrapper, v9 helpers/`pathvars`, mermaid reports.
+- **Nice-to-have** — optimisation/modernisation items from walk step 5–6:
+  `temp()` opportunities, an available wrapper, v9 helpers/`pathvars`, mermaid
+  reports, stale `min_version`.
 
 ## Output
 
