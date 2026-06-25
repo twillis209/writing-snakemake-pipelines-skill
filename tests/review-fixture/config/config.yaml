@@ -1,0 +1,3 @@
+samples: config/samples.tsv
+outdir: results
+threads: 8          # F2: runtime value in config

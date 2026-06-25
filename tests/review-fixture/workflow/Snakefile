@@ -1,0 +1,41 @@
+from snakemake.utils import min_version
+
+min_version("7.0")  # F9: stale min_version, pre-v9
+
+configfile: "config/config.yaml"
+
+import pandas as pd
+
+samples = pd.read_table(config["samples"]).set_index("sample", drop=False)
+# F4: no validate() of config or samples (no schema validation)
+
+outdir = config["outdir"]  # F8: central outdir variable + string concat
+
+
+rule all:
+    input:
+        expand(outdir + "/sorted/{sample}.bam", sample=samples.index),
+
+
+rule align:
+    input:
+        reads=lambda wildcards: samples.loc[wildcards.sample, "fastq"],  # F3: lambda in rule
+        ref="/data/genomes/hg38.fa",  # F5: hardcoded absolute path
+    output:
+        outdir + "/aligned/{sample}.bam",  # F8: outdir concat
+    threads: config["threads"]  # F2: threads pulled from config
+    shell:
+        "bwa mem -t {threads} {input.ref} {input.reads} | samtools view -b - > {output}"
+        # F1: no conda/container; F7: missing log:
+
+
+rule sort:
+    input:
+        outdir + "/aligned/{sample}.bam",
+    output:
+        outdir + "/sorted/{sample}.bam",  # F6: intermediate aligned bam never marked temp()
+    conda:
+        "envs/samtools.yaml"  # F1b: env exists but unpinned (see Step 2)
+    shell:
+        "samtools sort -o {output} {input}"
+        # F6b: hand-rolled samtools sort where a wrapper exists; F7: missing log:
