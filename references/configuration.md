@@ -19,7 +19,10 @@ Access via the global `config` dict. CLI can override:
 ```bash
 snakemake --config foo=1.5 bar=baz
 snakemake --configfile config/local.yaml   # merged with declared configfile
+snakemake --configfile config/local.yaml --replace-workflow-config  # v9: replace, don't merge
 ```
+
+By default `--configfile` is deep-merged on top of the in-Snakefile `configfile:`/`config:` directive. Pass `--replace-workflow-config` (v9.0+) to fully replace it instead — useful when a downstream config should not inherit any defaults from the workflow.
 
 ## Validating config
 
@@ -31,6 +34,8 @@ validate(config, "../schemas/config.schema.yaml")
 ```
 
 Run `validate()` BEFORE any rules use the config. Place validation in `common.smk` which is included first.
+
+`validate()` accepts a config dict, a pandas DataFrame/Series, and (v9.0+) a polars `DataFrame`/`LazyFrame` — so the sample-sheet pattern below works whether you read with pandas or polars.
 
 ## Validating a sample sheet
 
@@ -177,7 +182,7 @@ The `envvars:` directive ensures the variables exist (fast fail) and propagates 
 
 ## Profile (default executor and resources)
 
-`workflow/profiles/default/config.yaml`:
+`workflow/profiles/default/profile.yaml` (v9 docs name this `profile.yaml`; `config.yaml` still resolves):
 ```yaml
 software-deployment-method:
   - conda

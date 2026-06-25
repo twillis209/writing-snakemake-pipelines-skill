@@ -3,7 +3,7 @@
 A Claude Code skill for authoring [Snakemake](https://snakemake.readthedocs.io/)
 workflows that follow the official best practices.
 
-Targets Snakemake v8+. Bioinformatics-flavored examples.
+Targets Snakemake v9. Bioinformatics-flavored examples.
 
 ## Status
 
@@ -20,7 +20,7 @@ Snakemake workflow. It enforces:
 - The standard `workflow/` + `config/` + `results/` + `resources/` layout.
 - Conda or container-based reproducibility per rule.
 - Config-file-driven design with JSON schema validation.
-- v8 CLI conventions (`--sdm conda`, not `--use-conda`).
+- Modern CLI conventions (`--sdm conda`, not `--use-conda`).
 - Use of `snakemake-wrappers` and semantic helpers (`collect`, `lookup`, `branch`).
 - Linting (`snakemake --lint`), formatting (`snakefmt`), and dry-run as gates
   before claiming work is done.
@@ -39,6 +39,7 @@ references/                 # load-on-demand deeper material
   configuration.md
   modularization.md
   testing-and-ci.md
+  v8-to-v9-migration.md
   v7-to-v8-migration.md
   verification-checklist.md
 assets/                     # ready-to-copy templates

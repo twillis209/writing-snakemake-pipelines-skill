@@ -120,6 +120,16 @@ jobs:
 
 The provided template asset is in `assets/.github/workflows/main.yml`.
 
+## Reports and DAG visualization (v9)
+
+```bash
+snakemake --sdm conda --cores 1 --report-after-run --report report.html  # v9.0+: auto-build report after a successful run
+snakemake --report report.html                                            # or build it separately afterwards
+snakemake --dag mermaid-js > dag.mmd                                      # v9.0+: render the DAG as mermaid-js (choices: dot [default], mermaid-js)
+```
+
+`--report-after-run` requires `--report` and only fires on success — handy as a CI artifact step so each green run publishes an interactive report. Mermaid output embeds cleanly in Markdown/README without graphviz installed.
+
 ## Workflow catalog
 
 If hosting on GitHub publicly and the repo follows the standard structure, it's auto-discovered by the [Snakemake Workflow Catalog](https://snakemake.github.io/snakemake-workflow-catalog). For the "Standardized usage" tier, fill in `.wci.yml` per the catalog rules. That gets your workflow auto-documented usage instructions.

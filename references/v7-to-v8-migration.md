@@ -78,7 +78,7 @@ set-threads:
   bwa_mem: 8
 ```
 
-Place at `workflow/profiles/default/config.yaml`, invoke with `--profile workflow/profiles/default`.
+Place at `workflow/profiles/default/profile.yaml` (v9 default filename; `config.yaml` also resolves), invoke with `--profile workflow/profiles/default`.
 
 ## Defaults shift
 

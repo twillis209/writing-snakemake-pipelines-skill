@@ -35,7 +35,7 @@ The standard layout (from `docs/snakefiles/deployment.rst`):
 │   │   └── <plot>.rst       # per-output caption
 │   ├── profiles/
 │   │   └── default/
-│   │       └── config.yaml  # default executor + resources
+│   │       └── profile.yaml # default executor + resources (v9 name)
 │   └── documentation.md     # if publishing
 ├── config/
 │   ├── config.yaml
@@ -58,7 +58,7 @@ The standard layout (from `docs/snakefiles/deployment.rst`):
 ```python
 from snakemake.utils import min_version
 
-min_version("8.0")
+min_version("9.0")
 
 
 configfile: "config/config.yaml"
@@ -77,7 +77,7 @@ rule all:
 ```
 
 Notes:
-- `min_version` makes the workflow fail fast on older snakemake.
+- `min_version` makes the workflow fail fast on older snakemake. Pin to `"9.0"` as a v9 baseline, and bump per-feature if you use newer helpers (e.g. `min_version("9.22")` for `choose_file`/`choose_folder`/`choose_tmp`).
 - `default_target: True` is required for `module`-based composition to work cleanly later — set it even if you don't currently use modules.
 - The `rule all` lives in the Snakefile, NOT in an included `.smk` file (per the docs: includes don't override the default target).
 - Move all `import` statements and helper functions into `workflow/rules/common.smk` to keep the Snakefile scannable.

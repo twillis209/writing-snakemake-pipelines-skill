@@ -161,6 +161,46 @@ Signatures (all check by permission flags):
 
 Particularly useful for HPC profiles where the right tmpdir depends on which scheduler env-var is set.
 
+## `subpath`
+
+Derive a related path from an input/output without string surgery. Supports `basename=`, `parent=`, `ancestor=`, `strip_suffix=`, and (v9.20+) `with_suffix=`:
+
+```python
+rule index:
+    input:
+        "results/{sample}.bam",
+    output:
+        # swap .bam for .bam.bai on the SAME path
+        subpath(input[0], strip_suffix=".bam", with_suffix=".bam.bai"),
+    shell:
+        "samtools index {input}"
+```
+
+`with_suffix` appends (after `strip_suffix` if both given). Prefer this over hand-built `.replace()` calls.
+
+## `as_py_module` (v9.20+)
+
+Translates a `.py` script path into the dotted module name for `python -m`, so a script can be run as a proper module (relative imports work):
+
+```python
+rule run_tool:
+    input:
+        script="workflow/scripts/tool/main.py",
+    shell:
+        "python -m {as_py_module(input.script)}"   # -> workflow.scripts.tool.main
+```
+
+Raises if the path doesn't translate to a valid Python module name.
+
+## `flatten` (v9.0+)
+
+Flattens a list of lists into a single list — handy when an input function returns nested groups:
+
+```python
+input:
+    flatten([get_lane_fastqs(s) for s in samples.index]),
+```
+
 ## When `lambda` is OK
 
 Almost never. The official best practices doc says "avoid `lambda` expressions inside of rules." If a helper isn't expressible as `lookup`/`branch`/`collect`/`evaluate`, write a named `def` in `workflow/rules/common.smk` and reference it by name.

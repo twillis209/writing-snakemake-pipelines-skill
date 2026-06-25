@@ -1,11 +1,11 @@
 ---
 name: writing-snakemake-pipelines
-description: Use when creating, editing, or scaffolding Snakemake workflows — Snakefiles, .smk rule files, workflow/ projects, config/schema files, conda envs per rule, or anything involving the snakemake CLI. Bioinformatics-flavored. Targets Snakemake v8+.
+description: Use when creating, editing, or scaffolding Snakemake workflows — Snakefiles, .smk rule files, workflow/ projects, config/schema files, conda envs per rule, or anything involving the snakemake CLI. Bioinformatics-flavored. Targets Snakemake v9.
 ---
 
 # Writing Snakemake Pipelines
 
-Snakemake v8+ pipeline authoring that follows the official best practices: standard project layout, conda/container-based reproducibility, config-driven design, semantic helpers, wrappers, automatic reports, linting, and CI.
+Snakemake v9 pipeline authoring that follows the official best practices: standard project layout, conda/container-based reproducibility, config-driven design, semantic helpers, wrappers, automatic reports, linting, and CI. (v9 is a small step from v8 for workflow authors — see `references/v8-to-v9-migration.md` for the few differences, and `references/v7-to-v8-migration.md` for older ports.)
 
 ## When to use
 
@@ -29,8 +29,8 @@ These are pulled directly from the official `best_practices.rst` and are not neg
 6. **Prefer wrappers** from [snakemake-wrappers](https://snakemake-wrappers.readthedocs.io) when one exists for the tool. Pin the wrapper to a version tag.
 7. **Prefer semantic helpers** (`collect`, `lookup`, `branch`, `evaluate`, `exists`, `choose_file`/`choose_folder`/`choose_tmp`) over `lambda` and bespoke aggregation. Avoid `lambda` inside rules. See `references/semantic-helpers.md`.
 8. **Format with `snakefmt`.** Run `snakefmt workflow/` before publishing.
-9. **No hardcoded paths in rules.** Reference data → `resources/`; outputs → `results/`. Don't concatenate against a central `outdir` variable — it hampers readability per the official guidance.
-10. **v8 CLI uses `--sdm conda` / `--sdm apptainer`**, not the deprecated `--use-conda` / `--use-singularity`. See `references/v7-to-v8-migration.md` if porting an older workflow.
+9. **No hardcoded paths in rules.** Reference data → `resources/`; outputs → `results/`. Don't concatenate against a central `outdir` variable — it hampers readability per the official guidance. If a path root genuinely must be configurable, use v9 **pathvars** (`<results>/...` placeholders), not string concatenation. See `references/rule-anatomy.md`.
+10. **Use `--sdm conda` / `--sdm apptainer`** (v8+), not the deprecated `--use-conda` / `--use-singularity`. See `references/v7-to-v8-migration.md` if porting an older workflow.
 
 ## Decision flow
 
@@ -50,7 +50,9 @@ Set up CI / tests                            → testing-and-ci.md;
                                                assets/.github/workflows/main.yml
 "It works on my machine" / portability bug   → deployment.md;
                                                verify all rules have conda/container
-Port a v7 workflow                           → v7-to-v8-migration.md
+Port a v8 workflow                           → v8-to-v9-migration.md
+Port a v7 workflow                           → v7-to-v8-migration.md,
+                                               then v8-to-v9-migration.md
 Before claiming the work is done             → verification-checklist.md
 ```
 
@@ -88,7 +90,7 @@ Before claiming the work is done             → verification-checklist.md
 | `workflow/scripts/` | External scripts called via `script:`. |
 | `workflow/notebooks/` | Jupyter notebooks called via `notebook:`. |
 | `workflow/report/` | `.rst` caption files for `report()` outputs. |
-| `workflow/profiles/default/` | Profile YAML (default resources, executor settings). |
+| `workflow/profiles/default/profile.yaml` | Default profile (resources, executor settings). v9 docs use `profile.yaml`; `config.yaml` still resolves but `profile.yaml` avoids confusion with `config/config.yaml`. |
 | `config/config.yaml` | Workflow configuration (metadata only — NOT threads/resources). |
 | `config/samples.tsv` | Sample sheet (pandas-readable). |
 | `resources/` | Static reference data (small things checked into git OK; large things downloaded by a rule). |
@@ -126,6 +128,7 @@ If any of these fail or warn, fix the workflow — don't paper over with `--igno
 | `references/configuration.md` | Config files, JSON schemas, PEPs, tabular sample sheets. |
 | `references/modularization.md` | Combining workflows, includes, modules, wrappers, meta-wrappers. |
 | `references/testing-and-ci.md` | `--generate-unit-tests`, GitHub Actions, snakefmt CI. |
+| `references/v8-to-v9-migration.md` | Porting a v8 workflow to v9 (profile filename, new helpers, what didn't change). |
 | `references/v7-to-v8-migration.md` | Porting older workflows (deprecated flags, executor plugins). |
 | `references/verification-checklist.md` | Full verification gate before declaring work complete. |
 
@@ -139,7 +142,7 @@ If any of these fail or warn, fix the workflow — don't paper over with `--igno
 | `assets/workflow/envs/example.yaml` | Template conda env (channels + pinned deps). |
 | `assets/workflow/schemas/config.schema.yaml` | Template JSON schema for `config.yaml`. |
 | `assets/workflow/schemas/samples.schema.yaml` | Template JSON schema for `samples.tsv` rows. |
-| `assets/workflow/profiles/default/config.yaml` | Default profile (resources, executor settings). |
+| `assets/workflow/profiles/default/profile.yaml` | Default profile (resources, executor settings). |
 | `assets/config/config.yaml` | Starter config with `samples:` pointer. |
 | `assets/config/samples.tsv` | Starter sample sheet. |
 | `assets/.github/workflows/main.yml` | CI: lint + dry-run + integration test. |

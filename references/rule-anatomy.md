@@ -90,6 +90,30 @@ rule example:
 - Constrain with `wildcard_constraints` or inline syntax `{wildcard,REGEX}` in paths.
 - Access in input/output/log/params strings; in functions as `wildcards.foo`; in `shell:` as `{wildcards.foo}`.
 
+## Path variables (`pathvars`, v9.12+)
+
+Recurring path components (`results`, `logs`, `temp`, …) can be written as `<placeholder>` angle-bracket vars in `input`/`output`/`log`/`benchmark` and resolved at parse time. This is the **sanctioned** way to keep path roots configurable without the `outdir`-concatenation anti-pattern (see non-negotiable #9):
+
+```python
+rule somerule:
+    input:
+        "<results>/something/{sample}.txt",
+    output:
+        "<results>/processed/{sample}.txt",
+    shell:
+        "somecommand {input} {output}"
+```
+
+- Built-in defaults: `results`, `stats`, `reports`, `temp`, `resources`, `logs`, `benchmarks` — each resolves to its own name (so `<results>` → `results`) unless redefined.
+- Define/override globally, via config (`pathvars:` key), per-`module`, or per-rule (`pathvars` keyword), in that precedence order. Values may even contain wildcards:
+  ```python
+  pathvars:
+      per="{sample}"
+  ```
+- Resolved before wildcard resolution and DAG construction.
+
+Use this only when a path root genuinely needs to vary (e.g. a module reused in multiple contexts). For a plain single-purpose workflow, spelling out `results/...` literally is still clearest.
+
 ## Input functions (when semantic helpers aren't enough)
 
 ```python

@@ -42,7 +42,7 @@ include: "rules/calling.smk"
 
 ```python
 from snakemake.utils import min_version
-min_version("8.0")
+min_version("9.0")
 
 configfile: "config/config.yaml"
 
@@ -102,6 +102,19 @@ gitlab("owner/repo", path="workflow/Snakefile", tag="v1.0.0", host="git.internal
 ```
 
 Private repos: set `GITHUB_TOKEN` or `GITLAB_TOKEN`.
+
+**v9.23+ shorthand** — for hosted repos you can pass a single pinned string instead of `github(...)`/`gitlab(...)`:
+
+```python
+module dna_seq:
+    snakefile:
+        "gh:snakemake-workflows/dna-seq-gatk-variant-calling@v2.0.1:workflow/Snakefile"
+        # path defaults to workflow/Snakefile, so this is equivalent:
+        # "gh:snakemake-workflows/dna-seq-gatk-variant-calling@v2.0.1"
+    config: config["dna-seq"]
+```
+
+`gh:` = GitHub, `gl:` = GitLab. The `@tag` keeps it pinned and cacheable — same reproducibility rule as above: pin a tag, never a branch.
 
 ## Meta-wrappers
 
