@@ -1,6 +1,6 @@
 ---
 name: writing-snakemake-pipelines
-description: Use when creating, editing, or scaffolding Snakemake workflows — Snakefiles, .smk rule files, workflow/ projects, config/schema files, conda envs per rule, or anything involving the snakemake CLI. Bioinformatics-flavored. Targets Snakemake v9.
+description: Use when creating, editing, scaffolding, OR reviewing/auditing Snakemake workflows — Snakefiles, .smk rule files, workflow/ projects, config/schema files, conda envs per rule, or anything involving the snakemake CLI. Bioinformatics-flavored. Targets Snakemake v9.
 ---
 
 # Writing Snakemake Pipelines
@@ -14,6 +14,7 @@ Trigger on any of:
 - User mentions snakemake, a rule, wildcards, a Snakefile, `.smk`, conda env per rule
 - Editing files matching `**/Snakefile`, `**/*.smk`, `workflow/**`, `config/config.yaml`, `workflow/schemas/*.yaml`
 - Requests like "set up a snakemake project", "add a rule", "make this pipeline reproducible", "lint my snakefile"
+- Requests like "review this pipeline", "audit my workflow", "is this Snakefile idiomatic?", "what could be improved here?" → load `references/reviewing.md`.
 
 **Skip when:** the user is only reading a Snakefile to answer a question and no edits are intended.
 
@@ -53,6 +54,7 @@ Set up CI / tests                            → testing-and-ci.md;
 Port a v8 workflow                           → v8-to-v9-migration.md
 Port a v7 workflow                           → v7-to-v8-migration.md,
                                                then v8-to-v9-migration.md
+Review/audit an existing pipeline               → reviewing.md
 Before claiming the work is done             → verification-checklist.md
 ```
 
@@ -130,6 +132,7 @@ If any of these fail or warn, fix the workflow — don't paper over with `--igno
 | `references/testing-and-ci.md` | `--generate-unit-tests`, GitHub Actions, snakefmt CI. |
 | `references/v8-to-v9-migration.md` | Porting a v8 workflow to v9 (profile filename, new helpers, what didn't change). |
 | `references/v7-to-v8-migration.md` | Porting older workflows (deprecated flags, executor plugins). |
+| `references/reviewing.md` | Auditing an existing pipeline against best practices — the review walk, severity model, output format, fix hand-off. |
 | `references/verification-checklist.md` | Full verification gate before declaring work complete. |
 
 ## Assets (copy/adapt)
@@ -162,6 +165,7 @@ If any of these fail or warn, fix the workflow — don't paper over with `--igno
 | `import pandas` at the top of `Snakefile` | Put helper-Python imports and functions in `workflow/rules/common.smk` and `include:` it. Keeps the Snakefile scannable. |
 | Forgetting `default_target: True` on `rule all` | Required for `module`-based composition to work cleanly. |
 | `notebook:` without `jupyter` in the conda env | Add `jupyter` to the env yaml — required by snakemake. |
+| Reviewing a pipeline by ad-hoc skimming | Follow the fixed walk in `reviewing.md` (layout → reproducibility → config → idioms → optimisation → modernisation) so nothing is skipped. |
 | Running long execution to "check" the workflow | Use `snakemake -n` (dry-run); it's instant. |
 
 ## Red flags — stop and reconsider
