@@ -15,6 +15,7 @@ outdir = config["outdir"]  # F8: central outdir variable + string concat
 rule all:
     input:
         expand(outdir + "/sorted/{sample}.bam", sample=samples.index),
+        expand(outdir + "/sorted/{sample}.bam.bai", sample=samples.index),
 
 
 rule align:
@@ -33,9 +34,10 @@ rule sort:
     input:
         outdir + "/aligned/{sample}.bam",
     output:
-        outdir + "/sorted/{sample}.bam",  # F6: intermediate aligned bam never marked temp()
+        bam=outdir + "/sorted/{sample}.bam",  # F6: intermediate aligned bam never marked temp()
+        bai=(outdir + "/sorted/{sample}.bam").replace(".bam", ".bam.bai"),  # F10: .replace() path surgery, use subpath
     conda:
         "envs/samtools.yaml"  # F1b: env exists but unpinned (see Step 2)
     shell:
-        "samtools sort -o {output} {input}"
+        "samtools sort -o {output.bam} {input} && samtools index {output.bam}"
         # F6b: hand-rolled samtools sort where a wrapper exists; F7: missing log:
