@@ -1,3 +1,4 @@
+import shlex
 import pandas as pd
 from snakemake.utils import validate
 
@@ -26,4 +27,4 @@ def get_fastqs(wildcards):
 
 def get_r2_arg(wildcards):
     fq2 = samples.loc[wildcards.sample, "fq2"]
-    return f"--r2 {fq2}" if pd.notna(fq2) else ""
+    return f"--r2 {shlex.quote(fq2)}" if pd.notna(fq2) else ""

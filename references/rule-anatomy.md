@@ -106,7 +106,7 @@ rule somerule:
 ```
 
 - Built-in defaults: `results`, `stats`, `reports`, `temp`, `resources`, `logs`, `benchmarks` — each resolves to its own name (so `<results>` → `results`) unless redefined.
-- Precedence, highest first: per-rule `pathvars` keyword > `pathvars` key in a config dict passed to a `module` > `pathvars` keyword on the `module` directive > `pathvars` key in the config file / `--config` > top-level `pathvars:` directive. Ties: last definition wins.
+- Precedence, highest first: per-rule `pathvars` keyword > `pathvars` key in a config dict passed to a `module` > `pathvars` keyword on the `module` directive > `pathvars` key in the config file / `--config` > top-level `pathvars:` directive.
 - Setting pathvars from config is called rare and discouraged upstream (users must know internal expectations); a config schema can forbid it.
 - Values may contain wildcards:
   ```python

@@ -61,7 +61,7 @@ rule call:
 - Prefer tagged images, not `:latest`.
 - `docker://` is the preferred URL scheme, but snakemake runs containers via Apptainer (`--sdm apptainer`), not Docker — Docker need not be installed.
 - Global container: put `container: "docker://..."` at the top of the Snakefile to apply to all its rules (including `include:`d files); override per-rule with `container: None` or another image.
-- Since 9.25.2 a global `container:` is scoped per module: it does NOT apply to rules imported via `module`/`use rule`, and a module's own global container doesn't leak out. Set it inside the module, or override via `use rule ... with: container: ...`.
+- Since 9.25.2 a global `container:` is scoped per module: it does NOT apply to rules imported via `module`/`use rule`. Set it inside the module, or override via `use rule ... with: container: ...`.
 
 ## Combining conda + container (recommended for production)
 

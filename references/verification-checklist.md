@@ -25,7 +25,7 @@ Common lint warnings and fixes:
 | No log directive defined | Add e.g. `log: "logs/align/{sample}.log"` (same wildcards as the outputs) and redirect stderr in shell. |
 | Specify a conda environment or container for each rule | Add one (see `deployment.md`). |
 | Absolute path "…" | Replace with relative path under `resources/` or `results/`, or make it configurable. |
-| Path composition with '+' | Write the path out (`"results/sorted/{sample}.bam"`) or use pathvars. |
+| Path composition with '+' | Write the path out (`"results/sorted/{sample}.bam"`); relocate the root with `--directory`. |
 | Shell command directly uses variable … from outside of the rule | Pass it through `params:`. |
 | Deprecated singularity directive | Rename to `container:`. |
 
@@ -49,7 +49,7 @@ For cluster/cloud runs, dry-run with the target executor (`snakemake -n --execut
 Common failure modes:
 - `MissingInputException` — input file pattern doesn't match any rule's output. Check wildcards.
 - `AmbiguousRuleException` — two rules could produce the same output. Add `wildcard_constraints` or `ruleorder`.
-- `WildcardError` — a wildcard in `input:` that can't be determined from the output patterns. Every wildcard used in input/log/params must appear in the outputs.
+- `WildcardError` — a wildcard in `input:` that can't be determined from the output patterns. Every wildcard used in input/log/benchmark must appear in the outputs.
 
 ## Gate 4: Conda envs solve (if `--sdm conda` used)
 
