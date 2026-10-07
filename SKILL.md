@@ -39,7 +39,10 @@ These are derived from the official docs (best_practices, deployment, configurat
 Task                                         → Load reference + asset
 ─────────────────────────────────────────────────────────────────────
 Scaffold a brand-new workflow                → project-structure.md;
-                                               copy assets/ wholesale
+                                               copy assets/ wholesale, rename
+                                               the example rule/env/tool, and
+                                               create .tests/integration/
+                                               (CI runs there; testing-and-ci.md)
 Add a single rule to an existing workflow    → rule-anatomy.md;
                                                assets/workflow/rules/example.smk
 Add a software env for a new tool            → deployment.md;
@@ -108,7 +111,7 @@ Run these and confirm clean output. Don't claim success until you've seen the ou
 snakefmt --check workflow/                       # formatting
 snakemake --lint                                  # best-practice violations (must be clean)
 snakemake -n                                      # dry-run; DAG must resolve
-snakemake -n --configfile .tests/integration/config.yaml  # if test config exists
+snakemake -n --directory .tests/integration     # if an integration test exists
 ```
 
 For published/CI workflows also:

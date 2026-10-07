@@ -122,7 +122,10 @@ For a plain single-purpose workflow, spelling out `results/...` literally is sti
 ```python
 def get_fastqs(wildcards):
     row = samples.loc[wildcards.sample]
-    return {"r1": row["fq1"], "r2": row["fq2"]}
+    out = {"r1": row["fq1"]}
+    if pd.notna(row.get("fq2")):  # single-end samples have no fq2
+        out["r2"] = row["fq2"]
+    return out
 
 
 rule align:
