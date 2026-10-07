@@ -6,9 +6,9 @@
 snakemake --lint
 ```
 
-The linter flags best-practice violations: missing conda/container, hardcoded paths, lambdas in rules, missing logs, etc. Per the official guidance: "highly recommended to run the linter before publishing any workflow."
+The linter checks (v9.27): rules without `log:`; rules without `conda:`/`container:`; absolute paths; path composition with `+`; shell commands using variables from outside the rule; `input[0]`/`output[0]` index access in shell; long `run:` blocks; hardcoded params that prefix an input/output; mixed rules and functions in one file (multi-file workflows only); deprecated `singularity:`; env vars not asserted via `envvars:`; tab indentation. It does **not** flag lambdas — avoiding them is best-practice guidance (non-negotiable #7), checked by review, not tooling. Per the official guidance: "highly recommended to run the linter before publishing any workflow."
 
-CI should run lint and fail on any warning.
+`--lint` exits 1 on any lint, so a CI step fails on any warning by itself. Known false positive: the absolute-path lint matches any quoted string starting with `/`, including fragments like `outdir + "/sorted/{sample}.bam"` — fix the concatenation (which the `+` lint also flags), not a nonexistent absolute path.
 
 ## Formatting
 
@@ -17,16 +17,16 @@ snakefmt workflow/         # format in place
 snakefmt --check workflow/ # CI mode — fail on diff
 ```
 
-[snakefmt](https://github.com/snakemake/snakefmt) is to snakemake what black is to Python. Required for published workflows. There's an official GitHub Action.
+[snakefmt](https://github.com/snakemake/snakefmt) is to snakemake what black is to Python. Required for published workflows. snakefmt has no GitHub Action; in CI run it via `pipx run snakefmt==2.0.3 --check workflow/` (pin the version — formatting changes between releases).
 
 ## Dry-run
 
 ```bash
-snakemake -n                                     # dry-run with main config
-snakemake -n --configfile .tests/integration/config.yaml
+snakemake -n                                # dry-run with main config
+snakemake -n --directory .tests/integration  # dry-run against the test data
 ```
 
-A failing dry-run means missing inputs, ambiguous rules, or broken wildcard logic — fix before running for real.
+Prefer `--directory` over `--configfile .tests/integration/config/config.yaml`: relative input paths (and `configfile:`) resolve against the working directory, so `--configfile` alone still looks for the test data under the repo root. A failing dry-run means missing inputs, ambiguous rules, or broken wildcard logic — fix before running for real. Since v9.27, `-n --executor <name>` validates against that executor plugin rather than the local one.
 
 ## Integration test (small dummy data)
 
@@ -46,37 +46,34 @@ snakemake --sdm conda --cores 1 --directory .tests/integration
 
 ## Auto-generated unit tests
 
-After a successful integration run:
+Run the integration test with `--notemp` (otherwise `temp()` intermediates are gone and rules consuming them get no test), then generate from the same directory:
 ```bash
-snakemake --generate-unit-tests
+snakemake --sdm conda --cores 1 --directory .tests/integration --notemp
+snakemake --directory .tests/integration --generate-unit-tests "$PWD/.tests/unit"
 ```
 
-This creates `.tests/unit/test_<rule>.py` for each rule, copying one representative input set and producing a pytest test that:
+The target must be an absolute path inside the project (a relative one lands under `.tests/integration/`). This creates `.tests/unit/test_<rule>.py` for each rule whose inputs exist, copying one representative input set and producing a pytest test that:
 1. Reruns just that rule on the copied inputs.
-2. Compares outputs byte-by-byte (using `cmp`, `zcmp`, `bzcmp`, `xzcmp` based on extension).
+2. Compares outputs byte-by-byte (using `cmp`, `zcmp`, `bzcmp`, `xzcmp` based on extension). Since v9.27 a failure includes the comparison tool's output.
 
-Run with:
+Run from the repo root (the generated tests use repo-relative `--snakefile`/`--configfile`):
 ```bash
 pytest .tests/unit/
 ```
 
-Customize the comparison for specific file types via `cmp_cmds` in `common.py`:
+Re-running `--generate-unit-tests` **overwrites `common.py`** and skips rules that already have a `test_<rule>.py` (delete one to regenerate it). So don't edit `common.py`; customise comparison per test (v9.17+) in `test_<rule>.py`, extending rather than replacing the defaults:
 ```python
-cmp_cmds = {
-    ".gz":  ["zcmp"],
-    ".bam": ["gatk", "CompareSAMs", "--LENIENT_HEADER"],
-    ".txt": ["diff", "--ignore-matching-lines", "^#"],
-}
+common.OutputChecker(data_path, expected_path, workdir).check(
+    cmp_cmds={**common.cmp_cmds, ".bam": ["gatk", "CompareSAMs", "--LENIENT_HEADER"]}
+)
 ```
 
 Important: don't generate tests from big data — keep them under a few seconds each. Use small dummy inputs.
 
 ## GitHub Actions
 
-Use the official actions:
-
 - [snakemake/snakemake-github-action](https://github.com/snakemake/snakemake-github-action) — runs lint and the test workflow.
-- [snakefmt's GitHub Action](https://github.com/snakemake/snakefmt#github-actions) — checks formatting.
+- snakefmt — a plain `run:` step (`pipx run snakefmt==2.0.3 --check workflow/`); there is no snakefmt action.
 
 A minimal `.github/workflows/main.yml`:
 
@@ -93,13 +90,13 @@ jobs:
   format:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: snakemake/snakefmt@v0.8.5
+      - uses: actions/checkout@v6
+      - run: pipx run snakefmt==2.0.3 --check workflow/
 
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: snakemake/snakemake-github-action@v2
         with:
           directory: .tests/integration
@@ -110,7 +107,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [format, lint]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: snakemake/snakemake-github-action@v2
         with:
           directory: .tests/integration
@@ -136,9 +133,9 @@ If hosting on GitHub publicly and the repo follows the standard structure, it's 
 
 ## What you should be able to say before claiming "done"
 
-- [ ] `snakemake --lint` exits 0 with no warnings.
+- [ ] `snakemake --lint` exits 0 (no lints).
 - [ ] `snakefmt --check workflow/` exits 0.
-- [ ] `snakemake -n` resolves the DAG (or `snakemake -n --configfile .tests/integration/config.yaml` if there's a test config).
+- [ ] `snakemake -n` resolves the DAG (and `snakemake -n --directory .tests/integration` if there's an integration test).
 - [ ] If there's an integration test, it passes locally with `snakemake --sdm conda`.
 - [ ] CI is green.
 

@@ -35,7 +35,7 @@ rule sort:
         outdir + "/aligned/{sample}.bam",
     output:
         bam=outdir + "/sorted/{sample}.bam",  # F6: intermediate aligned bam never marked temp()
-        bai=(outdir + "/sorted/{sample}.bam").replace(".bam", ".bam.bai"),  # F10: .replace() path surgery, use subpath
+        bai=(outdir + "/sorted/{sample}.bam").replace(".bam", ".bam.bai"),  # F10: .replace() path surgery, use multiext
     conda:
         "envs/samtools.yaml"  # F1b: env exists but unpinned (see Step 2)
     shell:

@@ -16,16 +16,20 @@ Expected: exit 0, no output. If it suggests changes, run `snakefmt workflow/` an
 snakemake --lint
 ```
 
-Expected: "Congratulations, your workflow is in a good condition!" or equivalent. **No warnings.** Lint warnings are technical debt — fix them, don't suppress them.
+Expected: exit 0, "Congratulations, your workflow is in a good condition!". `--lint` exits 1 on any lint. Lint warnings are technical debt — fix them, don't suppress them. (Absolute-path hits on concatenated fragments like `outdir + "/x/{s}.bam"` are false positives; fixing the `+` composition clears both.)
 
 Common lint warnings and fixes:
 
 | Warning | Fix |
 |---------|-----|
-| Rule X has no `log:` directive | Add `log: "logs/{rule}/{wildcards.sample}.log"` and redirect stderr in shell. |
-| Rule X has no `conda:` or `container:` | Add one (see `deployment.md`). |
-| Rule X uses absolute path | Replace with relative path under `resources/` or `results/`. |
-| `lambda` in rule | Move to a named function in `common.smk`. Use a semantic helper if possible. |
+| No log directive defined | Add e.g. `log: "logs/align/{sample}.log"` (same wildcards as the outputs) and redirect stderr in shell. |
+| Specify a conda environment or container for each rule | Add one (see `deployment.md`). |
+| Absolute path "…" | Replace with relative path under `resources/` or `results/`, or make it configurable. |
+| Path composition with '+' | Write the path out (`"results/sorted/{sample}.bam"`) or use pathvars. |
+| Shell command directly uses variable … from outside of the rule | Pass it through `params:`. |
+| Deprecated singularity directive | Rename to `container:`. |
+
+The linter does not check for lambdas — that's review-time guidance (`semantic-helpers.md`).
 
 ## Gate 3: DAG resolves
 
@@ -35,15 +39,17 @@ snakemake -n
 
 Expected: prints "Job stats" table; lists jobs that would run; no errors.
 
-If a test config exists:
+If an integration test exists (runs against its own config and data):
 ```bash
-snakemake -n --configfile .tests/integration/config/config.yaml
+snakemake -n --directory .tests/integration
 ```
+
+For cluster/cloud runs, dry-run with the target executor (`snakemake -n --executor slurm`): since v9.27 this validates against that executor plugin.
 
 Common failure modes:
 - `MissingInputException` — input file pattern doesn't match any rule's output. Check wildcards.
 - `AmbiguousRuleException` — two rules could produce the same output. Add `wildcard_constraints` or `ruleorder`.
-- `WildcardError` — wildcard in output not in input, or undefined. Check the rule's wildcard set.
+- `WildcardError` — a wildcard in `input:` that can't be determined from the output patterns. Every wildcard used in input/log/params must appear in the outputs.
 
 ## Gate 4: Conda envs solve (if `--sdm conda` used)
 
@@ -83,7 +89,7 @@ The latest run on the current branch should be `success`.
 
 Don't bypass. The failure modes that "force" workarounds usually mean:
 
-- **`--ignore-incomplete`**: there's a real partial-output bug — your rule isn't atomic or writes outputs before completion.
+- **`--ignore-incomplete`**: incomplete outputs come from interrupted/failed jobs. Rerun them with `--rerun-incomplete` instead; if it keeps happening, the rule isn't atomic. To debug a failure, `--keep-incomplete` keeps the partial outputs (and the shadow dir of a failed `shadow:` job); clear stale shadow dirs with `--cleanup-shadow`.
 - **Deleting `.snakemake/`**: state corruption is a symptom, not a cause. Find why.
 - **`--force` / `--forceall`**: hiding the fact that snakemake doesn't think reruns are needed when they are. Usually wrong input/output spec.
 - **`--touch` to mark outputs as done**: only OK if you genuinely just changed metadata and the outputs are correct. Don't use as a debugger.

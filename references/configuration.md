@@ -15,6 +15,8 @@ In the Snakefile:
 configfile: "config/config.yaml"
 ```
 
+The path resolves relative to the **working directory**, not the Snakefile (unlike `validate()`, `include:` and `conda:` paths, which resolve relative to the file containing them).
+
 Access via the global `config` dict. CLI can override:
 ```bash
 snakemake --config foo=1.5 bar=baz
@@ -47,13 +49,13 @@ samples = pd.read_table(config["samples"], dtype=str).set_index("sample", drop=F
 validate(samples, "../schemas/samples.schema.yaml")
 ```
 
-Defaults declared in the schema (`default: true`) will be filled in automatically.
+Defaults declared in the schema (`default:`) are filled in automatically.
 
-## Schema format (JSON Schema draft-06)
+## Schema format (JSON Schema draft 2020-12)
 
 `workflow/schemas/config.schema.yaml`:
 ```yaml
-$schema: "https://json-schema.org/draft-06/schema#"
+$schema: "https://json-schema.org/draft/2020-12/schema"
 description: workflow configuration
 type: object
 properties:
@@ -80,7 +82,7 @@ required:
 
 `workflow/schemas/samples.schema.yaml` (per-row schema):
 ```yaml
-$schema: "https://json-schema.org/draft-06/schema#"
+$schema: "https://json-schema.org/draft/2020-12/schema"
 description: a row in samples.tsv
 type: object
 properties:
@@ -94,28 +96,28 @@ properties:
     description: path to read 1
   fq2:
     type: string
-    description: path to read 2 (optional for SE)
-  paired:
-    type: boolean
-    default: true
+    description: path to read 2 (empty for single-end)
 required:
   - sample
   - condition
   - fq1
 ```
 
-Default values in the schema **populate missing columns** when `validate()` runs against the DataFrame. Useful for adding new columns without breaking existing sample sheets.
+Default values in the schema **populate missing columns** when `validate()` runs against the DataFrame. Useful for adding new columns without breaking existing sample sheets. Don't add a redundant `paired` flag — derive single/paired-end from whether `fq2` is set (as `get_fastqs` below does). `validate()` uses a Draft 2020-12 validator; old `draft-06` `$schema` URIs fail with `UnknownDialect`.
 
 ## YTE templating
 
-Optional templating engine for config files. Activate by setting `__use_yte__: true` at the top of the config:
+Optional templating engine for config files. Activate by setting `__use_yte__: true` at the top of the config; `__definitions__` holds Python statements whose names the `?`-prefixed expressions can use:
 
 ```yaml
 __use_yte__: true
 
-samples: ?f"config/samples-{env('SCENARIO')}.tsv"
-params:
-  threads: ?os.cpu_count() // 2
+__definitions__:
+  - genome_build = "GRCh38"
+
+reference:
+  genome: ?f"resources/{genome_build}.fa"
+  annotation: ?f"resources/{genome_build}.gtf"
 ```
 
 Useful for shared config files that need light parameterization. Don't go overboard — readability matters.
@@ -160,7 +162,7 @@ rule all:
         collect("{sample}.txt", sample=pep.sample_table["sample_name"]),
 ```
 
-PEPs are for **sample metadata only**. Pair with a regular config file for workflow-specific options.
+Requires `peppy` (for `pepfile:`) and `eido` (for `pepschema:`) installed alongside snakemake. PEPs are for **sample metadata only**. Pair with a regular config file for workflow-specific options.
 
 ## Environment variables
 
@@ -182,7 +184,7 @@ The `envvars:` directive ensures the variables exist (fast fail) and propagates 
 
 ## Profile (default executor and resources)
 
-`workflow/profiles/default/profile.yaml` (v9 docs name this `profile.yaml`; `config.yaml` still resolves):
+`workflow/profiles/default/profile.yaml` (`profile.yaml` recognised since 9.19 — hence `min_version("9.19")` in the scaffold; `config.yaml` still resolves):
 ```yaml
 software-deployment-method:
   - conda
@@ -200,4 +202,4 @@ set-resources:
     runtime: 240
 ```
 
-Invoke with `snakemake --profile workflow/profiles/default`. This is the right place for runtime config — NOT `config/config.yaml`.
+Auto-applied when running from the project root — don't also pass `--profile workflow/profiles/default` (that loads it twice). Use `--workflow-profile none` to disable it. This is the right place for runtime config — NOT `config/config.yaml`.

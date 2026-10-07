@@ -15,10 +15,10 @@ rule samtools_sort:
     output: "mapped/{sample}.sorted.bam"
     params: "-m 4G"
     threads: 8
-    wrapper: "v3.4.0/bio/samtools/sort"
+    wrapper: "v9.19.0/bio/samtools/sort"
 ```
 
-- Pin to a release tag (`v3.4.0/...`), not a branch. Wrapper changes ship via version bumps.
+- Pin to a release tag (`v9.19.0/...`), not a branch. Wrapper changes ship via version bumps.
 - The wrapper automatically installs its conda env (under `--sdm conda`) — you do NOT need to write a separate `envs/` yaml for wrapped rules.
 - Browse at [snakemake-wrappers.readthedocs.io](https://snakemake-wrappers.readthedocs.io). README per wrapper shows the required `input:`/`output:`/`params:` keys.
 
@@ -42,7 +42,7 @@ include: "rules/calling.smk"
 
 ```python
 from snakemake.utils import min_version
-min_version("9.0")
+min_version("9.19")
 
 configfile: "config/config.yaml"
 
@@ -64,18 +64,19 @@ rule plot_vafs:
 
 # Re-define the default target to include both
 rule all:
+    default_target: True
     input:
         rules.dna_seq_all.input,
         "results/plots/vafs.svg",
-    default_target: True
 ```
 
 Key points:
-- **Pin to a tag**. `tag="v2.1.1"` is reproducible and snakemake caches the fetched source. Branches are not cached and not reproducible.
+- **Pin to a tag**. `tag="v2.1.1"` (or `commit=`) is reproducible and snakemake caches the fetched source persistently. `branch=` is re-fetched every run and not reproducible.
 - `as dna_seq_*` prefixes the imported rule names to avoid collisions.
 - `prefix: "dna-seq"` namespaces relative paths in the module — combine multiple modules without file-name clashes.
 - Use `config: config["dna-seq"]` to scope the module's view of config.
 - The default target must be redefined in the composing workflow.
+- A global `container:` in the composing Snakefile does NOT reach module rules (scoped per module since 9.25.2) — override per rule via `use rule ... with: container: ...`.
 
 ### Modifying a rule from a module
 
@@ -114,7 +115,7 @@ module dna_seq:
     config: config["dna-seq"]
 ```
 
-`gh:` = GitHub, `gl:` = GitLab. The `@tag` keeps it pinned and cacheable — same reproducibility rule as above: pin a tag, never a branch.
+`gh:` = GitHub, `gl:` = GitLab. `@tag` pins the version, but the shorthand passes the ref as a branch, so it is NOT persistently cached — the repo is re-fetched every run. Use `github(..., tag=...)` if offline runs or caching matter. Either way: pin a tag, never a branch name.
 
 ## Meta-wrappers
 
@@ -122,7 +123,7 @@ Pre-composed module from `snakemake-wrappers`:
 
 ```python
 module bwa_mapping:
-    meta_wrapper: "v3.4.0/meta/bio/bwa_mapping"
+    meta_wrapper: "v9.19.0/meta/bio/bwa_mapping"
 
 use rule * from bwa_mapping
 
@@ -143,7 +144,7 @@ snakedeploy deploy-workflow \
     --tag v2.1.1
 ```
 
-Generates a fresh project that references the published workflow as a module, with `config/` and `.tests/` skeleton. Use this when consuming a published catalog workflow.
+Generates a fresh project whose `workflow/Snakefile` references the published workflow as a module, plus a copy of its `config/` (and `profiles/` if present). Use this when consuming a published catalog workflow.
 
 ## When to factor out a module
 

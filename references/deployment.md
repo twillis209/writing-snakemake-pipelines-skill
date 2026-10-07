@@ -5,12 +5,12 @@
 Activate via:
 
 ```bash
-snakemake --sdm conda                # was --use-conda in v7
-snakemake --sdm apptainer            # was --use-singularity in v7
+snakemake --sdm conda                # v7: --use-conda
+snakemake --sdm apptainer            # v7: --use-singularity
 snakemake --sdm conda apptainer      # both — conda inside a container
 ```
 
-`--sdm` is short for `--software-deployment-method`. The old `--use-conda` / `--use-singularity` flags are removed in v8.
+`--sdm` is short for `--software-deployment-method`. The old `--use-conda` / `--use-singularity` flags are still accepted as legacy aliases (silently mapped to `--sdm`); write `--sdm` in new code.
 
 ## Conda env files
 
@@ -59,14 +59,15 @@ rule call:
 ```
 
 - Prefer tagged images, not `:latest`.
-- `docker://` works under both Docker and Apptainer/Singularity.
-- Global container: put `container: "docker://..."` at the top of the Snakefile to apply to all rules; override per-rule with `container: None` or another image.
+- `docker://` is the preferred URL scheme, but snakemake runs containers via Apptainer (`--sdm apptainer`), not Docker — Docker need not be installed.
+- Global container: put `container: "docker://..."` at the top of the Snakefile to apply to all its rules (including `include:`d files); override per-rule with `container: None` or another image.
+- Since 9.25.2 a global `container:` is scoped per module: it does NOT apply to rules imported via `module`/`use rule`, and a module's own global container doesn't leak out. Set it inside the module, or override via `use rule ... with: container: ...`.
 
 ## Combining conda + container (recommended for production)
 
 ```python
 # At the top of Snakefile
-container: "docker://continuumio/miniconda3:24.5.0"
+container: "docker://condaforge/miniforge3:26.3.2-3"
 
 rule call:
     conda: "../envs/bcftools.yaml"
@@ -94,7 +95,7 @@ To distribute the workflow as one image without losing the readable per-rule con
 
 ```bash
 snakemake --containerize > Dockerfile
-# or for Apptainer:
+# or an Apptainer definition file (9.17+):
 snakemake --containerize apptainer > workflow.def
 ```
 
@@ -116,7 +117,7 @@ rule bwa:
     shell: ...
 ```
 
-Run with `snakemake --use-envmodules`. Always provide a conda fallback so the workflow remains portable off the HPC.
+Run with `snakemake --sdm env-modules conda` (legacy: `--use-envmodules`). Always provide a conda fallback so the workflow remains portable off the HPC.
 
 ## Global workflow dependencies
 

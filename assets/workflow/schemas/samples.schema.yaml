@@ -1,4 +1,4 @@
-$schema: "https://json-schema.org/draft-06/schema#"
+$schema: "https://json-schema.org/draft/2020-12/schema"
 description: an entry in the samples TSV
 type: object
 properties:
@@ -14,9 +14,6 @@ properties:
   fq2:
     type: string
     description: path to FASTQ read 2 (optional for SE)
-  paired:
-    type: boolean
-    default: true
 required:
   - sample
   - condition

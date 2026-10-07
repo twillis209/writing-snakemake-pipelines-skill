@@ -39,10 +39,10 @@ rule example:
 - For dynamic input lists, prefer semantic helpers (`collect`, `lookup`, `branch`) over plain `lambda`. See `semantic-helpers.md`.
 
 ### `log`
-- ALWAYS use a log. Snakemake will not stream stdout/stderr from rules to the terminal by default in cluster execution; without `log:`, you'll lose error messages.
+- ALWAYS use a log. `log:` does **not** redirect anything by itself — it declares a file that, unlike outputs, is kept when the job fails. You still redirect: `... 2> {log}` or `&> {log}`. Without it, error messages are easily lost (e.g. on cluster executors).
 - Wildcards in `log:` work the same as in `output:`. Pattern: `logs/<rulename>/{sample}.log`.
-- Redirect both stdout and stderr in `shell:`: `... 2> {log}` or `&> {log}`.
-- For `script:` rules, snakemake passes a log file handle via `snakemake.log[0]` — open it in append mode.
+- Named logs: `log: stdout="logs/foo/{sample}.out", stderr="logs/foo/{sample}.err"` → `> {log.stdout} 2> {log.stderr}`.
+- For `script:` rules, `snakemake.log[0]` is a path (string), not a handle — open/redirect to it yourself.
 
 ### `benchmark`
 - One file per job, TSV format with columns: `s`, `h:m:s`, `max_rss`, `max_vms`, `max_uss`, `max_pss`, `io_in`, `io_out`, `mean_load`, `cpu_time`.
@@ -56,29 +56,30 @@ rule example:
 
 ### `threads`
 - Number of cores the job will use. `{threads}` is interpolated in `shell:`.
+- Snakemake sets `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS` etc. to the rule's `threads` (default 1), so implicitly-threaded libraries need `threads:` to parallelise.
 - **Do NOT pull `threads` from `config`.** Per the official best practices: runtime values like threads go via `--set-threads rulename=N` on the CLI or in a profile.
 
 ### `resources`
 - Free-form key=value (`mem_mb=`, `runtime=`, `disk_mb=`, `tmpdir=`, custom keys).
-- `mem_mb` and `runtime` (minutes) are standard for cluster executor plugins.
+- `mem_mb` and `runtime` (minutes) are standard for cluster executor plugins. Unit strings also work: `mem="8GB"`, `disk="50GB"`, `runtime="2h"`.
 - Override on CLI: `--set-resources rule=mem_mb=16000`.
-- Defaults via `--set-default-resources mem_mb=4000 runtime=60` or in the profile.
+- Defaults via `--default-resources mem_mb=4000 runtime=60` or `default-resources:` in the profile.
 
 ### `conda` vs `container`
 - `conda:` path is **relative to the Snakefile that contains the rule**. For a rule in `workflow/rules/foo.smk`, write `"../envs/foo.yaml"`.
-- `container:` should be a tagged image, not `latest`. Prefer `docker://` URIs (works under both Docker and Apptainer).
+- `container:` should be a tagged image, not `latest`. Prefer `docker://` URIs — Snakemake runs containers via Apptainer (`--sdm apptainer`), which pulls/converts Docker images.
 - Both can coexist globally and per-rule (see `deployment.md`).
 
 ### `wildcard_constraints`
 - Use a raw string (`r"..."`) to avoid escaping backslashes.
 - Constrain wildcards to prevent ambiguous matches. Example: `sample=r"[A-Za-z0-9_-]+"` keeps `.` from being matched and prevents conflation with extensions.
-- Can also be set globally at the top of the Snakefile.
+- Can also be set globally — declare global `wildcard_constraints:` **before** any rules (before 9.25.2, rules defined earlier silently lost `temp`/`protected`/`touch` flags).
 
 ### `shell` vs `script` vs `notebook` vs `wrapper` vs `run`
 
 | Directive | Use |
 |-----------|-----|
-| `wrapper:` | A snakemake-wrappers entry exists — always prefer. Pin to a tag like `"v3.4.0/bio/samtools/sort"`. |
+| `wrapper:` | A snakemake-wrappers entry exists — always prefer. Pin to a tag like `"v9.19.0/bio/samtools/sort"`. |
 | `shell:` | Single short CLI invocation. |
 | `script:` | Non-trivial logic. Script file (any language) gets a `snakemake` object with `input`, `output`, `params`, `wildcards`, `log`, `threads`, `resources`, `config`. |
 | `notebook:` | Jupyter notebook. Same conventions as `script:`. Conda env MUST include `jupyter`. |
@@ -92,7 +93,7 @@ rule example:
 
 ## Path variables (`pathvars`, v9.12+)
 
-Recurring path components (`results`, `logs`, `temp`, …) can be written as `<placeholder>` angle-bracket vars in `input`/`output`/`log`/`benchmark` and resolved at parse time. This is the **sanctioned** way to keep path roots configurable without the `outdir`-concatenation anti-pattern (see non-negotiable #9):
+Recurring path components (`results`, `logs`, `temp`, …) can be written as `<placeholder>` angle-bracket vars in `input`/`output`/`log`/`benchmark` and resolved at parse time. Their main use is making workflows reused as modules in several contexts flexible — not making the output root configurable (that's `--directory`):
 
 ```python
 rule somerule:
@@ -105,14 +106,16 @@ rule somerule:
 ```
 
 - Built-in defaults: `results`, `stats`, `reports`, `temp`, `resources`, `logs`, `benchmarks` — each resolves to its own name (so `<results>` → `results`) unless redefined.
-- Define/override globally, via config (`pathvars:` key), per-`module`, or per-rule (`pathvars` keyword), in that precedence order. Values may even contain wildcards:
+- Precedence, highest first: per-rule `pathvars` keyword > `pathvars` key in a config dict passed to a `module` > `pathvars` keyword on the `module` directive > `pathvars` key in the config file / `--config` > top-level `pathvars:` directive. Ties: last definition wins.
+- Setting pathvars from config is called rare and discouraged upstream (users must know internal expectations); a config schema can forbid it.
+- Values may contain wildcards:
   ```python
   pathvars:
       per="{sample}"
   ```
 - Resolved before wildcard resolution and DAG construction.
 
-Use this only when a path root genuinely needs to vary (e.g. a module reused in multiple contexts). For a plain single-purpose workflow, spelling out `results/...` literally is still clearest.
+For a plain single-purpose workflow, spelling out `results/...` literally is still clearest.
 
 ## Input functions (when semantic helpers aren't enough)
 
@@ -140,11 +143,10 @@ Notes:
 
 ```python
 rule all:
+    default_target: True
     input:
         collect("results/final/{sample}.txt", sample=samples.index),
-    default_target: True
 ```
 
-- `default_target: True` is recommended for v8+ — required when the workflow may be used as a module.
+- Put `default_target: True` (since 6.15) on the top-level `rule all` in the main `Snakefile`, not in included files — otherwise the first rule parsed (e.g. from an imported module) becomes the default. Upstream calls it "particularly useful" when combining workflows.
 - Use `collect()` (alias for `expand()`) — it reads more clearly as "gather these per-sample outputs".
-- The default target lives in the main `Snakefile`, not in included files.

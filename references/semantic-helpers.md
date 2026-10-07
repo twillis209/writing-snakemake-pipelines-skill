@@ -45,7 +45,7 @@ branch(lookup(query="sample == '{sample}' & batch == 'A'", within=samples),
 
 Key signature parts:
 - `within=`: dict, DataFrame, or Series (required).
-- `dpath=` for dicts, `query=` for DataFrames.
+- `dpath=` for dicts, `query=` for DataFrames. Since 9.25 the first positional argument is interpreted as query or dpath depending on the type of `within` (upstream docs use `lookup("sample == '{sample}'", within=samples)`); positional DataFrame queries need `min_version("9.25")` — older versions fail at parse time with "Dpath parameter can only be used with python mapping".
 - `cols=`: list or single column name to constrain the result.
 - `default=`: fallback if not found (else raises `LookupError` for dpath / returns `[]` for query).
 - `is_nrows=N`: returns a bool — true if the query matches exactly N rows.
@@ -75,6 +75,7 @@ branch(
 ```
 
 `condition` may be a callable taking `wildcards` — branch will produce a derived input function.
+With `cases=`, a condition value missing from the mapping raises `KeyError` unless `otherwise=` is also given (combining `cases` + `otherwise` is 9.24+). `cases` + `then` raises `ValueError`.
 
 ## `evaluate`
 
@@ -104,7 +105,7 @@ Also used as condition for `before_update` semantics — see the `update` flag.
 
 ## `parse_input`
 
-Parses an input file at workflow-evaluation time and exposes the value as a param:
+Returns a params function that opens the input file and runs `parser(fh, **kwargs)` on it (`parser=None` → stripped file contents). It runs when the job's params are evaluated, so the input must already exist (an upstream job's output is fine):
 
 ```python
 rule a:
@@ -120,12 +121,14 @@ rule a:
 
 ## `extract_checksum`
 
-Specialization of `parse_input` for `<file>.md5`-style checksum files:
+A parser for `parse_input` (not standalone): reads an `md5sum`-style file and returns the checksum for `file=`. Needs pandas:
 
 ```python
 params:
-    checksum=parse_input(input.checksum, parser=extract_checksum, file=output.tsv),
+    checksum=parse_input(input.checksum, parser=extract_checksum, file="results/data.tsv"),
 ```
+
+Pass `file=` as a plain string: kwargs go to the parser verbatim, so upstream's `file=output.tsv` fails in 9.27 (`'function' object has no attribute 'removeprefix'`).
 
 ## `prepend_param`
 
@@ -144,20 +147,16 @@ shell:
 
 Pick the first usable path from a list, based on permissions. Added in v9.22.
 
-```python
-# pick a writable, readable folder for tmp output
-default_resources:
-    tmpdir: choose_tmp([
-        "/scratch/nvme",
-        "/home/$USER/scratch",
-        "/scratch/$SLURM_JOB_ID",
-    ])
+```yaml
+# workflow/profiles/default/profile.yaml (profile YAML, not a Snakefile directive)
+default-resources:
+  tmpdir: choose_tmp(["/scratch/nvme", "/home/$USER/scratch", "/scratch/$SLURM_JOB_ID"])
 ```
 
-Signatures (all check by permission flags):
-- `choose_file(candidates, read=True, write=True, execute=None, creatable=None)`
-- `choose_folder(candidates, read=True, write=True, open=True, creatable=None)`
-- `choose_tmp(candidates, read=True, write=True, open=True, creatable=True)` — falls back to system tmpdir if none match.
+Signatures (all check by permission flags; `None` = don't care):
+- `choose_file(file_list, read=True, write=True, execute=None, creatable=None)` — returns `None` if nothing matches.
+- `choose_folder(folder_list, read=True, write=True, open=True, creatable=None)` — returns `None` if nothing matches.
+- `choose_tmp(tmp_list, read=True, write=True, open=True, creatable=True)` — returns the string `"system_tmpdir"` if nothing matches (Snakemake's own tmpdir).
 
 Particularly useful for HPC profiles where the right tmpdir depends on which scheduler env-var is set.
 
@@ -166,17 +165,19 @@ Particularly useful for HPC profiles where the right tmpdir depends on which sch
 Derive a related path from an input/output without string surgery. Supports `basename=`, `parent=`, `ancestor=`, `strip_suffix=`, and (v9.20+) `with_suffix=`:
 
 ```python
-rule index:
+rule sort:
     input:
-        "results/{sample}.bam",
+        bam="results/{sample}.bam",
     output:
-        # swap .bam for .bam.bai on the SAME path
-        subpath(input[0], strip_suffix=".bam", with_suffix=".bam.bai"),
+        bam="results/sorted/{sample}.bam",
+    params:
+        prefix=subpath(output.bam, strip_suffix=".bam"),   # results/sorted/{sample}
+        outdir=subpath(output.bam, parent=True),           # results/sorted
     shell:
-        "samtools index {input}"
+        "sometool --prefix {params.prefix} --outdir {params.outdir} {input.bam}"
 ```
 
-`with_suffix` appends (after `strip_suffix` if both given). Prefer this over hand-built `.replace()` calls.
+Use it in `params:` (or `input:`) — never in `output:`, which can't take functions. For sibling outputs use `multiext("results/{sample}", ".bam", ".bam.bai")`. `with_suffix` appends (after `strip_suffix` if both given). Prefer this over hand-built `.replace()` calls.
 
 ## `as_py_module` (v9.20+)
 
@@ -186,15 +187,17 @@ Translates a `.py` script path into the dotted module name for `python -m`, so a
 rule run_tool:
     input:
         script="workflow/scripts/tool/main.py",
+    params:
+        module=as_py_module(),   # defaults to input.script -> workflow.scripts.tool.main
     shell:
-        "python -m {as_py_module(input.script)}"   # -> workflow.scripts.tool.main
+        "python -m {params.module}"
 ```
 
-Raises if the path doesn't translate to a valid Python module name.
+Use it via `params:` (pass `input.other` for a differently named input); it can't be called inside a `shell:` string. Raises if the path doesn't translate to a valid Python module name.
 
 ## `flatten` (v9.0+)
 
-Flattens a list of lists into a single list — handy when an input function returns nested groups:
+Recursively flattens nested lists into a single list of **strings** (every item is `str()`-ed) — handy when an input function returns nested groups:
 
 ```python
 input:

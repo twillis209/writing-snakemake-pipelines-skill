@@ -1,7 +1,6 @@
 import pandas as pd
 from snakemake.utils import validate
 
-
 validate(config, "../schemas/config.schema.yaml")
 
 
@@ -23,3 +22,8 @@ def get_fastqs(wildcards):
     if pd.notna(row.get("fq2")):
         out["r2"] = row["fq2"]
     return out
+
+
+def get_r2_arg(wildcards):
+    fq2 = samples.loc[wildcards.sample, "fq2"]
+    return f"--r2 {fq2}" if pd.notna(fq2) else ""

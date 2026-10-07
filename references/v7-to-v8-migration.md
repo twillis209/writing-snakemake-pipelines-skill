@@ -6,18 +6,28 @@ If you encounter a workflow that uses pre-v8 patterns, here's the upgrade path. 
 
 | v7 | v8 |
 |----|----|
-| `--use-conda` | `--sdm conda` |
-| `--use-singularity` | `--sdm apptainer` |
+| `--use-conda` | `--sdm conda` (old flag deprecated, still accepted) |
+| `--use-singularity` | `--sdm apptainer` (old flag deprecated, still accepted) |
 | `--use-conda --use-singularity` | `--sdm conda apptainer` |
-| `--cluster "qsub ..."` | Install an executor plugin (e.g., `snakemake-executor-plugin-slurm`) and use `--executor slurm`. |
+| `--cluster "qsub ..."` | Prefer a dedicated executor plugin (e.g. `snakemake-executor-plugin-slurm`, `--executor slurm`); for a generic submit command, `--executor cluster-generic --cluster-generic-submit-cmd "qsub ..."`. |
 | `--kubernetes` | `--executor kubernetes` (via `snakemake-executor-plugin-kubernetes`). |
 | `--cluster-config` | Removed. Use a profile. |
-| `--cluster-status` / `--cluster-cancel` / `--cluster-sidecar` | Removed. Implemented inside executor plugins. |
-| `--drmaa` | Removed. Use a SLURM/SGE executor plugin. |
+| `--cluster-status` / `--cluster-cancel` / `--cluster-sidecar` | `--cluster-generic-status-cmd` / `--cluster-generic-cancel-cmd` / `--cluster-generic-sidecar-cmd` (cluster-generic plugin); dedicated plugins handle these internally. |
+| `--drmaa` | `--executor drmaa` (`snakemake-executor-plugin-drmaa`), or a dedicated plugin such as slurm. |
 | `--default-remote-provider` | Removed. Use a storage plugin (e.g., `snakemake-storage-plugin-s3`) and the `storage` directive. |
-| `--google-lifesciences` | Removed. Use an executor plugin. |
+| `--google-lifesciences` | Removed. Use `--executor googlebatch`. |
 
-Old `--use-conda` flags are not silently accepted — they're removed and will error.
+`--use-conda` / `--use-singularity` (and `--use-apptainer`) still parse as deprecated legacy aliases mapped to `--sdm`; migrate anyway.
+
+## Removed workflow syntax
+
+v8 removed three long-deprecated elements — these now error:
+
+| v7 | v8 |
+|----|----|
+| `dynamic()` outputs | `checkpoint` rules |
+| `version:` directive | `conda:` / `container:` |
+| `subworkflow` | `module` + `use rule` (see `modularization.md`) |
 
 ## Executor plugins
 
@@ -37,7 +47,7 @@ Common plugins:
 
 ## Storage plugins
 
-`remote://` providers moved to plugins. Pattern:
+v7 remote providers (`from snakemake.remote.HTTP import RemoteProvider`, `HTTP.remote(...)`) moved to storage plugins. NCBI/EGA became wrappers (`entrez/efetch`, `ega/fetch`) instead. Pattern:
 
 ```python
 # Old (v7):
@@ -78,26 +88,16 @@ set-threads:
   bwa_mem: 8
 ```
 
-Place at `workflow/profiles/default/profile.yaml` (v9 default filename; `config.yaml` also resolves), invoke with `--profile workflow/profiles/default`.
-
-## Defaults shift
-
-- `--printshellcmds` is now on by default; the old `-p` is unnecessary.
-- `--latency-wait` default lowered; bump on NFS-backed clusters (`--latency-wait 60`).
-- `--rerun-incomplete` is the default rerun behavior; old `--ri` shortcut still works.
-
-## `lambda` warnings now lint-fail
-
-The linter is stricter about `lambda` inside rules. Replace with `lookup`/`branch` or a named module-level function.
+Place at `workflow/profiles/default/profile.yaml` (filename recognised from v9.19; `config.yaml` works on all versions). It's applied automatically as the workflow profile — don't also pass it via `--profile`.
 
 ## `min_version` calls
 
-If the workflow uses `min_version("7.x")` you'll need to upgrade — bump to `min_version("8.0")` after auditing for the above changes.
+If the workflow uses `min_version("7.x")` you'll need to upgrade — bump after auditing for the above changes — to `min_version("8.0")` at least, or straight to the v9 baseline in `v8-to-v9-migration.md`.
 
 ## Things that did NOT change
 
 - The directory layout (`workflow/`, `config/`, `results/`, `resources/`).
-- The `rule` syntax.
+- The `rule` syntax (apart from the removals above).
 - Wrappers (still pinned by version tag).
 - Conda env yaml format.
 - JSON schemas for config validation.

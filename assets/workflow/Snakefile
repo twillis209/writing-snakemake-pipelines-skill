@@ -1,6 +1,6 @@
 from snakemake.utils import min_version
 
-min_version("9.0")
+min_version("9.19")
 
 
 configfile: "config/config.yaml"
@@ -11,6 +11,6 @@ include: "rules/example.smk"
 
 
 rule all:
+    default_target: True
     input:
         collect("results/example/{sample}.done", sample=samples.index),
-    default_target: True

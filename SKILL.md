@@ -20,18 +20,18 @@ Trigger on any of:
 
 ## The non-negotiables
 
-These are pulled directly from the official `best_practices.rst` and are not negotiable:
+These are derived from the official docs (best_practices, deployment, configuration, migration) and are not negotiable:
 
 1. **Lint and dry-run before claiming done.** `snakemake --lint` must report no warnings; `snakemake -n` must resolve the DAG without missing inputs. See `references/verification-checklist.md`.
 2. **Use the standard project layout** (`workflow/Snakefile`, `workflow/rules/*.smk`, `workflow/envs/*.yaml`, `workflow/schemas/*.yaml`, `workflow/scripts/*`, `config/config.yaml`, `results/`, `resources/`). See `references/project-structure.md`.
 3. **Every non-trivial rule gets an isolated software environment** — a `conda:` directive pointing to `workflow/envs/<tool>.yaml`, or a `container:` directive. Never install tools globally; never leave versions unpinned. See `references/deployment.md`.
-4. **Config files hold metadata only** (samples, parameters, references). **Runtime-specific values (threads, memory, output folders) go via the CLI** (`--set-threads`, `--set-resources`, `--set-default-resources`, `--directory`). This is a frequent mistake.
+4. **Config files hold metadata only** (samples, parameters, references). **Runtime-specific values (threads, memory, output folders) go via the CLI** (`--set-threads`, `--set-resources`, `--default-resources`, `--directory`). This is a frequent mistake.
 5. **Validate config and sample sheets** with JSON schemas via `snakemake.utils.validate()`. See `references/configuration.md`.
 6. **Prefer wrappers** from [snakemake-wrappers](https://snakemake-wrappers.readthedocs.io) when one exists for the tool. Pin the wrapper to a version tag.
 7. **Prefer semantic helpers** (`collect`, `lookup`, `branch`, `evaluate`, `exists`, `choose_file`/`choose_folder`/`choose_tmp`) over `lambda` and bespoke aggregation. Avoid `lambda` inside rules. See `references/semantic-helpers.md`.
 8. **Format with `snakefmt`.** Run `snakefmt workflow/` before publishing.
-9. **No hardcoded paths in rules.** Reference data → `resources/`; outputs → `results/`. Don't concatenate against a central `outdir` variable — it hampers readability per the official guidance. If a path root genuinely must be configurable, use v9 **pathvars** (`<results>/...` placeholders), not string concatenation. See `references/rule-anatomy.md`.
-10. **Use `--sdm conda` / `--sdm apptainer`** (v8+), not the deprecated `--use-conda` / `--use-singularity`. See `references/v7-to-v8-migration.md` if porting an older workflow.
+9. **No hardcoded paths in rules.** Reference data → `resources/`; outputs → `results/`. Don't concatenate against a central `outdir` variable — it hampers readability per the official guidance. The output root is set with `--directory`; for modules reused in several contexts, use **pathvars** (v9.12+, `<results>/...` placeholders), not string concatenation. See `references/rule-anatomy.md`.
+10. **Use `--sdm conda` / `--sdm apptainer`** (v8+), not the legacy `--use-conda` / `--use-singularity` aliases (still accepted, mapped to `--sdm`). See `references/v7-to-v8-migration.md` if porting an older workflow.
 
 ## Decision flow
 
@@ -64,7 +64,7 @@ Before claiming the work is done             → verification-checklist.md
 
 | Use | When |
 |-----|------|
-| `wrapper:` | A snakemake-wrappers entry exists for the tool — always prefer this. Pin to a tag (`v3.x.y/bio/...`). |
+| `wrapper:` | A snakemake-wrappers entry exists for the tool — always prefer this. Pin to a tag (`v9.19.0/bio/...`). |
 | `shell:` | Single CLI invocation; one-liner or short pipeline. Use `{input}`, `{output}`, `{params}`, `{threads}`, `{resources}`, `{log}`. |
 | `script:` | Non-trivial logic in Python/R/Julia/Rust/Bash. Script gets a `snakemake` object with `input`/`output`/`params`/`wildcards`/`log`/`threads`/`resources`/`config`. |
 | `notebook:` | Same as `script:` but for Jupyter notebooks; great for reports and exploratory rules. |
@@ -80,6 +80,7 @@ Before claiming the work is done             → verification-checklist.md
 | `touch("...")` | Output is a sentinel (mtime matters, contents do not). |
 | `directory("...")` | Output is a directory, not a single file. |
 | `pipe("...")` | Output is a Unix pipe to the next rule (no intermediate file on disk). |
+| `report("...", caption="../report/x.rst")` | Output to embed in the HTML report built by `snakemake --report report.html`. |
 
 ### Where things go
 
@@ -92,7 +93,7 @@ Before claiming the work is done             → verification-checklist.md
 | `workflow/scripts/` | External scripts called via `script:`. |
 | `workflow/notebooks/` | Jupyter notebooks called via `notebook:`. |
 | `workflow/report/` | `.rst` caption files for `report()` outputs. |
-| `workflow/profiles/default/profile.yaml` | Default profile (resources, executor settings). v9 docs use `profile.yaml`; `config.yaml` still resolves but `profile.yaml` avoids confusion with `config/config.yaml`. |
+| `workflow/profiles/default/profile.yaml` | Default profile (resources, executor settings). `profile.yaml` is recognised since 9.19 (hence `min_version("9.19")`); `config.yaml` still resolves but `profile.yaml` avoids confusion with `config/config.yaml`. |
 | `config/config.yaml` | Workflow configuration (metadata only — NOT threads/resources). |
 | `config/samples.tsv` | Sample sheet (pandas-readable). |
 | `resources/` | Static reference data (small things checked into git OK; large things downloaded by a rule). |
@@ -156,14 +157,14 @@ If any of these fail or warn, fix the workflow — don't paper over with `--igno
 | Mistake | Fix |
 |---------|-----|
 | Putting `threads: config["threads"]` in a rule | Use `--set-threads rulename=N` from the CLI / profile. |
-| `--use-conda` in CI scripts | Use `--sdm conda` (v8+). |
+| `--use-conda` in CI scripts | Use `--sdm conda` (v8+); `--use-conda` is only a legacy alias. |
 | `lambda wildcards: ...` inside `input:` | Replace with `lookup()`, `branch()`, or a named module-level function. |
 | Unpinned `pandas` in env yaml | Pin to a version. Use `snakedeploy pin-conda-envs` to lock. |
 | `outdir = "results"` + string concat | Hardcode paths in rules; `results/` is the convention. The official docs explicitly call out the outdir-concat anti-pattern. |
 | Conda envs in random folders | All envs live in `workflow/envs/`. |
 | Schema in `config/` | Schemas live in `workflow/schemas/` — they're workflow code, not config. |
 | `import pandas` at the top of `Snakefile` | Put helper-Python imports and functions in `workflow/rules/common.smk` and `include:` it. Keeps the Snakefile scannable. |
-| Forgetting `default_target: True` on `rule all` | Required for `module`-based composition to work cleanly. |
+| Forgetting `default_target: True` on the top-level `rule all` | Set it so rules from imported modules can't take over the default target. |
 | `notebook:` without `jupyter` in the conda env | Add `jupyter` to the env yaml — required by snakemake. |
 | Reviewing a pipeline by ad-hoc skimming | Follow the fixed walk in `reviewing.md` (layout → reproducibility → config → idioms → optimisation → modernisation) so nothing is skipped. |
 | Running long execution to "check" the workflow | Use `snakemake -n` (dry-run); it's instant. |
@@ -178,4 +179,4 @@ If any of these fail or warn, fix the workflow — don't paper over with `--igno
 
 ## Authority
 
-The non-negotiables in this skill are taken from `docs/snakefiles/best_practices.rst` in the snakemake repository. When in doubt, that file is the source of truth.
+The non-negotiables in this skill are derived from the official snakemake docs (`docs/snakefiles/best_practices.rst`, deployment, configuration, migration guides). When in doubt, those docs are the source of truth for intent — but for exact flag names and API signatures, the snakemake source of the release you target wins (the docs contain typos, e.g. `--set-default-resources` for `--default-resources`, and a draft-06 `$schema` URI that fails validation).

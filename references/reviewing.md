@@ -26,10 +26,13 @@ deterministic:
    `configuration.md`)
 4. **Idioms & helpers** — for each of these, flag if the pipeline uses a
    hand-rolled equivalent instead:
-   - `lambda` inside rules (Blocker — see above)
+   - `lambda` inside rules (Blocker — see Severity; non-negotiable #7)
    - hand-rolled aggregation → `collect`/`lookup`/`branch`/`evaluate`
+     (positional `lookup("...", within=...)` is valid v9.25+ — not an error;
+     just check `min_version` ≥ 9.25 where it's used with DataFrames)
    - `.replace()` or string concatenation to derive a related path → `subpath`
-     (e.g. `.replace(".bam", ".bam.bai")` → `subpath(input[0], strip_suffix=".bam", with_suffix=".bam.bai")`)
+     in `input:`/`params:` (e.g. `subpath(input[0], strip_suffix=".bam", with_suffix=".bam.bai")`);
+     in `output:` (no functions allowed) → `multiext` or a literal string
    - parallel outputs sharing a stem → `multiext`
    - repeated `--flag file1 --flag file2` patterns → `prepend_param`
    - nested input lists from a comprehension → `flatten`
@@ -43,14 +46,23 @@ deterministic:
    exists for the tool; `pipe()`, better `threads`/`resources`; hardcoded
    `tmpdir` values that should use `choose_tmp`/`choose_folder`. (see
    `rule-anatomy.md`, `modularization.md`, `semantic-helpers.md`)
-6. **Modernisation** — deprecated v7/v8 patterns (`--use-conda`, `remote://`),
-   profile filename, v9 helper functions; central `outdir`/results-root
-   variables that should become `pathvars` (`<results>/...` placeholders — the
-   v9 replacement for the outdir-concat anti-pattern). (see
-   `v8-to-v9-migration.md`, `rule-anatomy.md`)
+6. **Modernisation** — deprecated v7/v8 patterns (`--use-conda` in docs/CI,
+   v7 `RemoteProvider`/`HTTP.remote(...)`, `singularity:` → `container:`);
+   typed scripts using `from snakemake.script import snakemake` (broken since
+   9.17 → `TYPE_CHECKING` form; unguarded, it's an ImportError → Blocker);
+   `profile.yaml` with `min_version` < 9.19 (silently ignored); v9 helper
+   functions; central `outdir`/results-root variables that should become
+   literal `results/...` paths (root set via `--directory`) or, in reusable
+   modules, `pathvars` (`<results>/...`). (see `v8-to-v9-migration.md`,
+   `rule-anatomy.md`)
 7. **Tooling corroboration** — if the pipeline is runnable here, fold in
    `snakemake --lint` and `snakemake -n`; if not, say "not runnable here,
-   static review only". (see `verification-checklist.md`)
+   static review only". (see `verification-checklist.md`) `--lint` exits 1 on
+   any lint. Map each lint onto a walk finding rather than listing it
+   separately. Absolute-path hits on concatenated fragments
+   (`outdir + "/sorted/..."`) are false positives — report the concatenation,
+   don't escalate them as absolute paths. The linter doesn't flag lambdas, so
+   its silence doesn't clear them.
 
 ## Each finding
 
@@ -72,7 +84,7 @@ Phrase every finding as four parts:
   steps 4–6: `.replace()` path surgery instead of `subpath`, `temp()`
   opportunities, an available wrapper, `pathvars` for configurable path roots,
   `multiext`/`prepend_param`/`flatten`/`as_py_module`/`choose_tmp`
-  opportunities, stale `min_version`, mermaid reports.
+  opportunities, stale `min_version`, mermaid-js `--dag` for README DAGs.
 
 ## Output
 
